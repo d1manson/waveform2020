@@ -42,7 +42,7 @@ impl t_x1_y1_x2_y2_numpix1_numpix2 {
 }
 
 pub struct PosFile {
-  full_file_path: String,
+  file: File,
   pub pos_format: String,
   pub n_pos: usize,
   data_start: u64,
@@ -51,9 +51,9 @@ pub struct PosFile {
 }
 
 impl PosFile {
-  pub fn new(full_file_path: String) -> PosFile {
+  pub fn new(file: File) -> PosFile {
     PosFile {
-      full_file_path: full_file_path,
+      file: file,
       pos_format: String::new(),
       n_pos: 0,
       data_start: 0,
@@ -63,8 +63,8 @@ impl PosFile {
   }
 
   pub fn populate_header(&mut self) -> Result<(), Box<dyn Error>> {
-    let f = File::open(&self.full_file_path).expect("cannot open pos file");
-    let mut reader = BufReader::new(f);
+    let mut reader = BufReader::new(self.file);
+    reader.seek(SeekFrom::Start(0))?;
 
     for line in reader.by_ref().lines() {
       let line_str = line?;
@@ -113,10 +113,8 @@ impl PosFile {
     if self.header_parsed == false {
       self.populate_header();
     }
-
-    let mut f = File::open(&self.full_file_path).expect("cannot open pos file");
-    f.seek(SeekFrom::Start(self.data_start));
-    let mut raw_data: Vec<t_x1_y1_x2_y2_numpix1_numpix2> = read_struct_array(f, self.n_pos);
+    self.file.seek(SeekFrom::Start(self.data_start));
+    let mut raw_data: Vec<t_x1_y1_x2_y2_numpix1_numpix2> = read_struct_array(self.file, self.n_pos);
 
     for mut rec in &mut raw_data {
       rec.swap_bytes();
