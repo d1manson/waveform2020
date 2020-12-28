@@ -5,14 +5,49 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::io::SeekFrom;
 
+use super::read_struct_array::read_struct_array;
+
+// this is how the data is stored in the pos file (no padding between elements, 16 bytes total)
+#[repr(C)]
+#[derive(Default, Debug)]
+struct t_x1_y1_x2_y2_numpix1_numpix2 {
+  t: u32,
+  x1: u16,
+  y1: u16,
+  x2: u16,
+  y2: u16,
+  numpix1: u16,
+  numpix2: u16,
+}
+
+#[derive(Default, Debug)]
+pub struct PosSamp {
+  x: u16,
+  y: u16,
+  // TODO: add directional data
+}
+
+// TODO: make swap_byte a trait, so that it can be used within the read_struct_array
+// could even have a derived macro thing..though that sounds very complicated
+impl t_x1_y1_x2_y2_numpix1_numpix2 {
+  fn swap_bytes(&mut self) {
+    self.t = self.t.swap_bytes(); // this doesn't seem to be right still in the case of t
+    self.x1 = self.x1.swap_bytes();
+    self.y1 = self.y1.swap_bytes();
+    self.x2 = self.x2.swap_bytes();
+    self.y2 = self.y2.swap_bytes();
+    self.numpix1 = self.numpix1.swap_bytes();
+    self.numpix2 = self.numpix2.swap_bytes();
+  }
+}
+
 pub struct PosFile {
   full_file_path: String,
   pub pos_format: String,
   pub n_pos: usize,
   data_start: u64,
-  data_end: u64,
   header_parsed: bool,
-  pub pos_data: Vec<u8>,
+  pub pos_data: Vec<PosSamp>,
 }
 
 impl PosFile {
@@ -22,7 +57,6 @@ impl PosFile {
       pos_format: String::new(),
       n_pos: 0,
       data_start: 0,
-      data_end: 0,
       header_parsed: false,
       pos_data: Vec::new(),
     }
@@ -56,6 +90,10 @@ impl PosFile {
       };
     }
 
+    if self.pos_format != "t,x1,y1,x2,y2,numpix1,numpix2" {
+      panic!("Missing or unrecognised pos_format");
+    }
+
     let mut data_start_token = String::new();
     reader
       .by_ref()
@@ -67,16 +105,6 @@ impl PosFile {
 
     self.data_start = reader.seek(SeekFrom::Current(0))?;
 
-    reader.seek(SeekFrom::End(-10));
-    self.data_end = reader.seek(SeekFrom::Current(0))?;
-
-    let mut data_end_token = String::new();
-    reader.by_ref().read_to_string(&mut data_end_token);
-    if data_end_token != "data_end\r\n" {
-      panic!("didn't find data_end token at file end");
-    }
-    // TODO: possibly support incomplete files - we should end on the last complete sample
-    // I guess we leave the rest as zeros up until n_pos, so it's clear data is missing.
     self.header_parsed = true;
     Ok(())
   }
@@ -86,14 +114,19 @@ impl PosFile {
       self.populate_header();
     }
 
-    let nbytes = usize::try_from(self.data_end - self.data_start).expect("data too large");
     let mut f = File::open(&self.full_file_path).expect("cannot open pos file");
     f.seek(SeekFrom::Start(self.data_start));
-    self.pos_data.reserve_exact(nbytes);
+    let mut raw_data: Vec<t_x1_y1_x2_y2_numpix1_numpix2> = read_struct_array(f, self.n_pos);
 
-    f.take(self.data_end - self.data_start)
-      .read_to_end(&mut self.pos_data);
+    for mut rec in &mut raw_data {
+      rec.swap_bytes();
+    }
 
+    self.pos_data.resize_with(self.n_pos, Default::default);
+    for (i, rec) in raw_data.iter().enumerate() {
+      self.pos_data[i].x = rec.x1;
+      self.pos_data[i].y = rec.y1;
+    }
     Ok(())
   }
 }
