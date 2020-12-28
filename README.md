@@ -7,3 +7,11 @@ For now, run with:
 ```
 cargo run
 ```
+
+--
+
+In installed wasm-pack with:
+
+```
+curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+```
