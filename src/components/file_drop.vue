@@ -1,31 +1,36 @@
 <template>
   <div class="main" id="drop_zone" @drop="onDrop" @dragover="onDragOver">
     <h1>File Drop</h1>
-    <div v-for="f in files" :key="f.name">{{ f.name }}</div>
+    <div v-for="fn in fileNames" :key="fn">{{ fn }}</div>
   </div>
 </template>
 
 <script>
+//import * as Comlink from "comlink";
+
 export default {
   name: "FileDrop",
   props: {},
+  workerEvents: {
+    "update:file-name"(filesNames) {
+      this.fileNames = filesNames;
+    },
+  },
   data: () => ({
-    files: [],
+    fileNames: [],
   }),
   mounted() {
     window.fd = this;
   },
   methods: {
-    onDrop(event) {
+    async onDrop(event) {
       event.preventDefault();
-
       const newFiles = event.dataTransfer.items
         ? [...event.dataTransfer.items]
             .filter((item) => item.kind === "file")
             .map((item) => item.getAsFile())
         : event.dataTransfer.files;
-
-      this.files = [...this.files, ...newFiles];
+      this.worker.addFiles(newFiles);
     },
     onDragOver(event) {
       event.preventDefault();
