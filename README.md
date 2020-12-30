@@ -1,22 +1,24 @@
 # waveform2020
 
-wasm/rust/webgl GUI for exploring/managing ephys data
-
---
-
-I installed wasm-pack with:
-
+## Project setup
 ```
-curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+npm install
 ```
 
----
-
-To build wasm do:
-
+### Compiles and hot-reloads for development
 ```
-wasm-pack build
+npm run serve
 ```
 
-Note that this builds into the `/wasm/pkg` directory, which is then linked to from within the `js/package.json` file by
-relative path reference, though you need to run `npm i` in the `js` directory to setup the symkink.
+### Compiles and minifies for production
+```
+npm run build
+```
+
+### Lints and fixes files
+```
+npm run lint
+```
+
+### Customize configuration
+See [Configuration Reference](https://cli.vuejs.org/config/).

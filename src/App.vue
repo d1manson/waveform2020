@@ -1,5 +1,5 @@
 <template>
-  <file-drop msg="Welcome to Your Vue.js App" />
+  <file-drop />
 </template>
 
 <script>

@@ -26,7 +26,6 @@ export default {
         : event.dataTransfer.files;
 
       this.files = [...this.files, ...newFiles];
-      window.wasm.load_pos(this.files[0]);
     },
     onDragOver(event) {
       event.preventDefault();
