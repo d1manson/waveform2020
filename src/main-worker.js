@@ -1,4 +1,5 @@
 import * as Comlink from "comlink";
+import waveWebgl from "./wave_webgl";
 
 const files = [];
 const fileFromName = new Map();
@@ -65,8 +66,7 @@ Comlink.expose({
   useTileWallCanvas(offscreenCanvasNew) {
     offscreenCanvas = offscreenCanvasNew;
   },
-  render() {
-    const ctx = offscreenCanvas.getContext("2d");
-    ctx.fillRect(10, 30, 40, 90);
+  render(/*{ experiment_name, tet_num }*/) {
+    waveWebgl(offscreenCanvas);
   },
 });
