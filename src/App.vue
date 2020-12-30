@@ -1,7 +1,7 @@
 <template>
   <div class="main">
-    <file-drop />
     <file-explorer />
+    <file-drop />
   </div>
 </template>
 
@@ -18,7 +18,7 @@ export default {
 };
 </script>
 
-<style>
+<style scoped>
 .main {
   width: 100vw;
   height: 100vh;

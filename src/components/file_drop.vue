@@ -53,7 +53,6 @@ export default {
 
 <style scoped>
 .wrapper {
-  z-index: 100;
   position: fixed;
   top: 0;
   left: 0;
