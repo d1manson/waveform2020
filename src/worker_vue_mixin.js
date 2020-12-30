@@ -50,7 +50,7 @@ export default (worker) => {
   worker.setTriggerFunction(
     Comlink.proxy((eventName, data) => {
       const handlers = workerEventHandlers[eventName];
-      handlers.forEach((h) => h(data));
+      handlers && handlers.forEach((h) => h(data));
     })
   );
 
