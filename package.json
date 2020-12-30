@@ -10,6 +10,7 @@
   "dependencies": {
     "comlink": "^4.3.0",
     "core-js": "^3.6.5",
+    "splitpanes": "^3.0.4",
     "vue": "^3.0.0"
   },
   "devDependencies": {
@@ -39,7 +40,8 @@
     "rules": {
       "no-unused-vars": "off",
       "no-empty": "off",
-      "vue/no-unused-vars": "off"
+      "vue/no-unused-vars": "off",
+      "vue/no-unused-components": "off"
     }
   },
   "browserslist": [
