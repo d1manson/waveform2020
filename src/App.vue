@@ -15,7 +15,7 @@
         </splitpanes></pane
       >
       <pane size="70">
-        TODO: Tilewall
+        <tile-wall />
       </pane>
     </splitpanes>
     <file-drop />
@@ -27,6 +27,7 @@ import FileDrop from "./components/file_drop.vue";
 import FileExplorer from "./components/file_explorer.vue";
 import { Splitpanes, Pane } from "splitpanes";
 import "splitpanes/dist/splitpanes.css";
+import TileWall from "./components/tile_wall.vue";
 
 export default {
   name: "App",
@@ -35,10 +36,10 @@ export default {
     FileExplorer,
     Splitpanes,
     Pane,
+    TileWall,
   },
 };
 </script>
-
 <style scoped>
 .main {
   width: 100%;

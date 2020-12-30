@@ -66,7 +66,7 @@
     </template>
     <div v-else class="empty">
       <h4>File Explorer</h4>
-      Drag files onto the page to get started.
+      After dragging files onto the page, they will be listed here.
     </div>
   </div>
 </template>

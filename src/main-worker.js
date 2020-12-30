@@ -52,6 +52,8 @@ function organiseFiles() {
   );
 }
 
+let offscreenCanvas;
+
 Comlink.expose({
   addFiles(newFiles) {
     newFiles.forEach((f) => files.push(f));
@@ -59,5 +61,12 @@ Comlink.expose({
   },
   setTriggerFunction(triggerNew) {
     trigger = triggerNew;
+  },
+  useTileWallCanvas(offscreenCanvasNew) {
+    offscreenCanvas = offscreenCanvasNew;
+  },
+  render() {
+    const ctx = offscreenCanvas.getContext("2d");
+    ctx.fillRect(10, 30, 40, 90);
   },
 });

@@ -84,12 +84,11 @@ export default {
   justify-content: center;
 }
 .inner {
-  border: 2px solid #ccc;
   padding: 10px 30px;
   color: #555;
   background: white;
-  opacity: 0.9;
-  border-radius: 15px;
+  opacity: 0.8;
+  padding: 20px;
 }
 strong {
   font-weight: bold;
