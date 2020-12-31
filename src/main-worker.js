@@ -1,6 +1,7 @@
 import * as Comlink from "comlink";
 import { render as renderWaves, setOffScreenCanvas } from "./wave_webgl";
 import parseTetFile from "./parse_tet_file";
+import parseCutFile from "./parse_cut_file";
 
 const fileFromName = new Map();
 const experiments = {};
@@ -48,19 +49,12 @@ function storeFileWithinExperiments(f) {
   }
 }
 
-async function render(tetFile) {
-  const { header, webgl_voltage_data } = await parseTetFile(tetFile);
+async function render(tetFile, cutFile) {
+  const { webgl_voltage_data } = await parseTetFile(tetFile);
 
-  renderWaves(webgl_voltage_data, makeDummyCutData(1e3), 1e3);
-}
+  const { cut } = await parseCutFile(cutFile);
 
-function makeDummyCutData(nWaves) {
-  const CUT_DATA = new Float32Array(nWaves * 2);
-  for (let ii = 0; ii < nWaves; ii++) {
-    CUT_DATA[ii * 2 + 0] = ii % 2;
-    CUT_DATA[ii * 2 + 1] = (ii & 2) >> 1;
-  }
-  return CUT_DATA;
+  renderWaves(webgl_voltage_data, cut);
 }
 
 Comlink.expose({
@@ -82,12 +76,13 @@ Comlink.expose({
     // in the long run we can just create an offscreen canvas from scratch on the worker
     setOffScreenCanvas(offscreenCanvasNew);
   },
-  render({ experiment_name, tet_num }) {
+  render({ experiment_name, tet_num, cut_file_name }) {
     // This is extremely rough, it will need to be substantially rethought when
     // used for real.
     const tetFileName =
       experiments[experiment_name].tetrodes[tet_num].tet_file.name;
     const tetFile = fileFromName.get(tetFileName);
-    render(tetFile);
+    const cutFile = fileFromName.get(cut_file_name);
+    render(tetFile, cutFile);
   },
 });

@@ -1,5 +1,14 @@
 import webglUtils from "./webgl-utils";
 
+const nChannelsPerSpike = 4;
+const nVoltageSampsPerChannel = 50;
+const nIrrelevantPrefixBytesPerChannel = 4;
+
+const renderGapBetweenChannels = 2; // 1 unit here is equal to the width of once voltage time step
+
+const nLinesPerChannel =
+  nIrrelevantPrefixBytesPerChannel + nVoltageSampsPerChannel; // 54, but first 5 clipped out
+
 const state = {
   canv: null,
   gl: null,
@@ -9,17 +18,25 @@ const state = {
 };
 
 const vertexShaderSource = `#version 300 es
-in lowp vec2 a_voltage;
-in vec2 a_group_xy;
+// see notes on normalizing unsigned/signed data here:
+// https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/vertexAttribPointer
+
+in lowp vec2 a_voltage; // values between [-1, 1]
+in vec2 a_group_xy; // values between [0, 1]
+in lowp float a_group_color; // values between [0, 1]
+flat out lowp float v_group_color;
 
 void main() {  
-  
-  int segmentId = gl_InstanceID % 54; 
+
+  int channelSegmentId = gl_InstanceID % ${nLinesPerChannel}; 
+  int spikeSegmentId = gl_InstanceID % ${nLinesPerChannel * nChannelsPerSpike};
 
   // because of the way we've setup our instanced rendinering, the builtin
   // glVertexID variable is either 0 or 1, indicating left or right of line segment.
-  int x_within_wave = segmentId + gl_VertexID;
-
+  int x_within_spike = (spikeSegmentId + gl_VertexID) 
+  - (spikeSegmentId/${nLinesPerChannel}+1) * ${nIrrelevantPrefixBytesPerChannel -
+  renderGapBetweenChannels};
+  
   // the first 5 line segments are nonsense (so we clip them out):
   // segment 0: previous_byte -- time_byte_1   (to make this work for first wave we ask that the voltage data to be prefixed with a dummy byte)
   // segment 1: time_byte_1 -- time_byte_2
@@ -32,24 +49,28 @@ void main() {
   // ..
   // segment 52: voltage_samp_48 -- voltage_samp_49
   // segment 53: voltage_samp_49 -- voltage_samp_50
-  float clip = segmentId >= 5 ? 1.0 : 0.0;
+  float clip = channelSegmentId >= 5  ? 1.0 : 0.0;
 
   gl_Position = vec4(
-    float(a_group_xy.x) + float(x_within_wave)/51. -1.,
-    a_group_xy.y + float(a_voltage[gl_VertexID]) -0.5,
+    -1. + a_group_xy.x*2. 
+    + float(x_within_spike)/${nLinesPerChannel * nChannelsPerSpike}. ,
+    -1. + a_group_xy.y*2. + (a_voltage[gl_VertexID] + 1.)/8.,
     0.0, // we don't care about depth
     clip
     );
+
+    v_group_color = a_group_color ;
+
 }
 `;
 
 const fragmentShaderSource = `#version 300 es
-precision highp float;
-uniform vec4 u_color;
-out vec4 outColor;
+
+flat in lowp float v_group_color;
+out lowp vec4 outColor;
 
 void main() {
-  outColor = u_color;
+  outColor = vec4(v_group_color*20.,  sin(v_group_color*100.) ,  sin(v_group_color*150.), 1.);
 }
 `;
 
@@ -65,7 +86,7 @@ export function setOffScreenCanvas(canvas) {
     null,
     (err) => console.dir(err)
   );
-  state.gl.viewport(0, 0, 400, 400);
+  state.gl.viewport(0, 0, canvas.width, canvas.height);
   state.gl.useProgram(state.program);
 
   state.locs.voltage = state.gl.getAttribLocation(state.program, "a_voltage");
@@ -73,14 +94,36 @@ export function setOffScreenCanvas(canvas) {
   gl.enableVertexAttribArray(state.locs.voltage);
 
   state.locs.group_xy = gl.getAttribLocation(state.program, "a_group_xy");
-  state.buffers.group_xy = gl.createBuffer();
+  state.buffers.group = gl.createBuffer();
   gl.enableVertexAttribArray(state.locs.group_xy);
 
-  state.locs.color = gl.getUniformLocation(state.program, "u_color");
+  state.locs.group_color = gl.getAttribLocation(state.program, "a_group_color");
+  gl.enableVertexAttribArray(state.locs.group_color);
 }
 
-export function render(voltage, group_xy, nWaves) {
-  // Voltage data should consist of nWaves, where each wave contains:
+function makeDummyCutXYData(cut) {
+  const nSpikes = cut.length;
+
+  const CUT_DATA = new Uint8Array(nSpikes * 3);
+
+  for (let ii = 0; ii < nSpikes; ii++) {
+    // TODO: page through 12 at a time
+    if (cut[ii] > 11) {
+      CUT_DATA[ii * 3 + 0] = 255;
+      CUT_DATA[ii * 3 + 1] = 255;
+      CUT_DATA[ii * 3 + 2] = 255;
+    } else {
+      CUT_DATA[ii * 3 + 0] = (cut[ii] % 2) * 128;
+      CUT_DATA[ii * 3 + 1] = (cut[ii] >> 1) * 43;
+      CUT_DATA[ii * 3 + 2] = cut[ii];
+    }
+  }
+
+  return CUT_DATA;
+}
+
+export function render(voltage, cut) {
+  // Voltage data should consist of nSpikes, where each wave contains:
   //  four instances of [4-time-bytes 50 voltage bytes].
   // And there should be a single dummy byte at the start (see
   // the note within the vertex shader for why this is needed).
@@ -123,19 +166,38 @@ export function render(voltage, group_xy, nWaves) {
   // use on the RHS of a line...which is exactly what we need!
   gl.vertexAttribDivisor(state.locs.voltage, 1);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, state.buffers.group_xy);
-  gl.bufferData(gl.ARRAY_BUFFER, group_xy, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, state.buffers.group);
+  gl.bufferData(gl.ARRAY_BUFFER, makeDummyCutXYData(cut), gl.STATIC_DRAW);
   gl.vertexAttribPointer(
     state.locs.group_xy,
     2, // two elements per point (x,y)
-    gl.FLOAT,
-    false, // normalize
-    0,
+    gl.UNSIGNED_BYTE,
+    true, // normalize
+    3, // the data is 3 byte elements of x,y,palletId
     0
   );
-  gl.vertexAttribDivisor(state.locs.group_xy, 54);
+  gl.vertexAttribDivisor(
+    state.locs.group_xy,
+    nLinesPerChannel * nChannelsPerSpike
+  );
 
-  gl.uniform4fv(state.locs.color, [1, 0, 0, 1]);
+  gl.vertexAttribPointer(
+    state.locs.group_color,
+    1, // one element of palletId
+    gl.UNSIGNED_BYTE,
+    true, // normalize
+    3, // the data is 3 byte elements of x,y,palletId
+    2 // offset 2 bytes (i.e. after x and y bytes)
+  );
+  gl.vertexAttribDivisor(
+    state.locs.group_color,
+    nLinesPerChannel * nChannelsPerSpike
+  );
 
-  gl.drawArraysInstanced(gl.LINES, 0, 2, 54 * nWaves);
+  gl.drawArraysInstanced(
+    gl.LINES,
+    0,
+    2,
+    nLinesPerChannel * nChannelsPerSpike * cut.length
+  );
 }
