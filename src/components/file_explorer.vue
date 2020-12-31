@@ -1,5 +1,25 @@
 <template>
   <div class="file-explorer">
+    <global-events
+      @keyup.1="switchTo(selectedExperimentName, 1)"
+      @keyup.2="switchTo(selectedExperimentName, 2)"
+      @keyup.3="switchTo(selectedExperimentName, 3)"
+      @keyup.4="switchTo(selectedExperimentName, 4)"
+      @keyup.5="switchTo(selectedExperimentName, 5)"
+      @keyup.6="switchTo(selectedExperimentName, 6)"
+      @keyup.7="switchTo(selectedExperimentName, 7)"
+      @keyup.8="switchTo(selectedExperimentName, 8)"
+      @keyup.9="switchTo(selectedExperimentName, 9)"
+      @keyup.right="switchTo(selectedExperimentName, selectedTetNum + 1)"
+      @keyup.left="switchTo(selectedExperimentName, selectedTetNum - 1)"
+      @keyup.up="
+        switchTo(getExperimentNameRelative(selectedExperimentName, -1))
+      "
+      @keyup.down="
+        switchTo(getExperimentNameRelative(selectedExperimentName, +1))
+      "
+    />
+
     <template v-if="experiments.length">
       <div class="experiment-list">
         <div
@@ -90,10 +110,14 @@
 
 <script>
 //import * as Comlink from "comlink";
+import { GlobalEvents } from "vue-global-events";
 
 export default {
   name: "FileExplorer",
   props: {},
+  components: {
+    GlobalEvents,
+  },
   workerEvents: {
     "update:organised-files"(experiments) {
       this.experiments = experiments;
@@ -111,12 +135,12 @@ export default {
   methods: {
     switchTo(experimentName, tetNum, cutFileName) {
       this.selectedExperimentName = experimentName;
-      this.selectedTetNum = tetNum || this.selectedTetNum;
+      this.selectedTetNum = Math.max(1, tetNum) || this.selectedTetNum;
       this.selectedCutName = cutFileName;
 
       if (!this.selectedCutName) {
         const exp = this.experiments.find((exp) => exp.name === experimentName);
-        const tet = exp.tetrodes[this.selectedTetNum];
+        const tet = exp && exp.tetrodes[this.selectedTetNum];
         if (tet) {
           this.selectedCutName = tet.cut_files[0] && tet.cut_files[0].name;
         }
@@ -127,6 +151,13 @@ export default {
         tet_num: this.selectedTetNum,
         cut_file_name: this.selectedCutName,
       });
+    },
+    getExperimentNameRelative(experimentName, delta) {
+      const index = this.experiments.findIndex(
+        (exp) => exp.name == experimentName
+      );
+      const exp = this.experiments[index + delta];
+      return (exp && exp.name) || experimentName;
     },
   },
 

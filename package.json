@@ -11,7 +11,8 @@
     "comlink": "^4.3.0",
     "core-js": "^3.6.5",
     "splitpanes": "^3.0.4",
-    "vue": "^3.0.0"
+    "vue": "^3.0.0",
+    "vue-global-events": "^2.1.0"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "~4.5.0",
