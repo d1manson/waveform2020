@@ -70,9 +70,11 @@ export function setOffScreenCanvas(canvas) {
 
   state.locs.voltage = state.gl.getAttribLocation(state.program, "a_voltage");
   state.buffers.voltage = gl.createBuffer();
+  gl.enableVertexAttribArray(state.locs.voltage);
 
   state.locs.group_xy = gl.getAttribLocation(state.program, "a_group_xy");
   state.buffers.group_xy = gl.createBuffer();
+  gl.enableVertexAttribArray(state.locs.group_xy);
 
   state.locs.color = gl.getUniformLocation(state.program, "u_color");
 }
@@ -87,7 +89,6 @@ export function render(voltage, group_xy, nWaves) {
 
   gl.bindBuffer(gl.ARRAY_BUFFER, state.buffers.voltage);
   gl.bufferData(gl.ARRAY_BUFFER, voltage, gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(state.locs.voltage);
 
   // we start with a 1D vector of voltage data.
   // for simplicitly, lets pretend the data within is:
@@ -124,7 +125,6 @@ export function render(voltage, group_xy, nWaves) {
 
   gl.bindBuffer(gl.ARRAY_BUFFER, state.buffers.group_xy);
   gl.bufferData(gl.ARRAY_BUFFER, group_xy, gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(state.locs.group_xy);
   gl.vertexAttribPointer(
     state.locs.group_xy,
     2, // two elements per point (x,y)

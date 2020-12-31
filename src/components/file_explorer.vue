@@ -6,13 +6,19 @@
           v-for="experiment in experiments"
           :key="experiment.name"
           class="experiment"
-          @click="selectedExperimentName = experiment.name"
+          @click="switchTo(experiment.name)"
           :class="{ selected: experiment.name === selectedExperimentName }"
         >
           <div class="experiment-top">
-            <div class="experiment-name">trial '{{ experiment.name }}'</div>
+            <div
+              class="experiment-name"
+              :class="{ selected: experiment.name === selectedExperimentName }"
+            >
+              trial '{{ experiment.name }}'
+            </div>
             <div
               class="file set-file"
+              :class="{ selected: experiment.name === selectedExperimentName }"
               v-if="experiment.set_file"
               :title="experiment.set_file.name"
             >
@@ -20,6 +26,7 @@
             </div>
             <div
               class="file pos-file"
+              :class="{ selected: experiment.name === selectedExperimentName }"
               v-if="experiment.pos_file"
               :title="experiment.pos_file.name"
             >
@@ -31,11 +38,16 @@
               v-for="tet in experiment.tetrodes.filter((tet) => !!tet)"
               :key="tet.num"
               class="tet-file-group"
-              @click="selectedTetNum = tet.num"
+              @click.stop="switchTo(experiment.name, tet.num)"
             >
               <div
                 class="file tet-file"
-                :class="{ small: selectedTetNum !== tet.num }"
+                :class="{
+                  small: selectedTetNum !== tet.num,
+                  selected:
+                    selectedTetNum === tet.num &&
+                    selectedExperimentName === experiment.name,
+                }"
                 v-if="tet.tet_file"
                 :title="tet.tet_file.name"
               >
@@ -44,10 +56,15 @@
 
               <div
                 class="file cut-file"
-                :class="{ small: selectedTetNum !== tet.num }"
+                :class="{
+                  small: selectedTetNum !== tet.num,
+                  selected:
+                    selectedCutName && selectedCutName === cut_file.name,
+                }"
                 v-for="cut_file in tet.cut_files"
                 :key="cut_file.name"
                 :title="cut_file.name"
+                @click.stop="switchTo(experiment.name, tet.num, cut_file.name)"
               >
                 {{ cut_file.short }}
               </div>
@@ -91,35 +108,34 @@ export default {
   mounted() {
     window.fe = this;
   },
-  methods: {},
-  computed: {
-    selectedExperiment() {
-      return this.experiments.find(
-        (exp) => exp.name === this.selectedExperimentName
-      );
+  methods: {
+    switchTo(experimentName, tetNum, cutFileName) {
+      this.selectedExperimentName = experimentName;
+      this.selectedTetNum = tetNum || this.selectedTetNum;
+      this.selectedCutName = cutFileName;
+
+      if (!this.selectedCutName) {
+        const exp = this.experiments.find((exp) => exp.name === experimentName);
+        const tet = exp.tetrodes[this.selectedTetNum];
+        if (tet) {
+          this.selectedCutName = tet.cut_files[0] && tet.cut_files[0].name;
+        }
+      }
+
+      this.worker.render({
+        experiment_name: this.selectedExperimentName,
+        tet_num: this.selectedTetNum,
+        cut_file_name: this.selectedCutName,
+      });
     },
   },
+
   watch: {
     experiments() {
       if (this.experiments.length && !this.selectedExperimentName) {
-        this.selectedExperimentName = this.experiments[0].name;
+        const tet = this.experiments[0].tetrodes.find((t) => !!t);
+        this.switchTo(this.experiments[0].name, tet && tet.num);
       }
-    },
-    selectedExperiment() {
-      if (this.selectedExperiment && !this.selectedTetNum) {
-        const tet = this.selectedExperiment.tetrodes.find((t) => !!t);
-        this.selectedTetNum = tet && tet.num;
-      }
-      this.worker.render({
-        experiment_name: this.selectedExperimentName,
-        tet_num: this.selectedTetNum,
-      });
-    },
-    selectedTetNum() {
-      this.worker.render({
-        experiment_name: this.selectedExperimentName,
-        tet_num: this.selectedTetNum,
-      });
     },
   },
 };
@@ -154,6 +170,7 @@ export default {
   cursor: pointer;
   &.selected {
     background: #f1efb6;
+    border-color: #e0da34;
   }
 }
 .file {
@@ -168,25 +185,36 @@ export default {
   }
   &.pos-file,
   &.set-file {
-    background: #e6d39c;
-    color: #82630b;
-    border-color: #82630b;
+    background: #c4e6e6;
+    color: #0b2b82;
+    border-color: #0b2b82;
+    &.selected {
+      background: #c6eb81;
+    }
   }
 
   &.tet-file {
     background: #ddd;
+    &.selected {
+      background: #dbe02c;
+    }
   }
   &.cut-file {
     background: #e8bebe;
     border-color: #5a4242;
     color: #5a4242;
+    &.selected {
+      background: #d0a541;
+    }
   }
 }
 .experiment-name {
   font-size: 0.8em;
-  font-weight: bold;
   display: inline-block;
   margin-right: 10px;
+  &.selected {
+    font-weight: bold;
+  }
 }
 .experiment-bottom {
   margin-top: 2px;
