@@ -52,7 +52,8 @@ function storeFileWithinExperiments(f) {
 async function render(tetFile, cutFile) {
   const { webgl_voltage_data } = await parseTetFile(tetFile);
 
-  const { cut } = await parseCutFile(cutFile);
+  const { cut, group_counts } = await parseCutFile(cutFile);
+  trigger("update:cut-counts", group_counts);
 
   renderWaves(webgl_voltage_data, cut);
 }
