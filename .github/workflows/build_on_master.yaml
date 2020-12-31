@@ -1,0 +1,27 @@
+name: Build on master branch
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: "14"
+        run: |
+          npm run build
+        working-directory: .
+      - run: |
+          git add -A
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit"
+          else
+            git commit -m "changes from npm run build (via .github/workflows)"
+          fi
+      - run: git push
