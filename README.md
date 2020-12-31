@@ -6,7 +6,7 @@ This version is still in early development. The aim is to have it run
 in latest Chrome (again, rather than only via Electron), support more
 data formats, be faster, and hopefully be easier to maintain and extend.
 
----
+## You can view this version live [here](https://d1manson.github.io/waveform2020).
 
 ## Development
 

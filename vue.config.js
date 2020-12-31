@@ -1,4 +1,5 @@
-const WorkerPlugin = require("worker-plugin");
+const WorkerPlugin = require("worker-plugin"),
+  path = require("path");
 
 module.exports = {
   chainWebpack: (config) => config.resolve.symlinks(false),
@@ -8,4 +9,8 @@ module.exports = {
     },
     plugins: [new WorkerPlugin()],
   },
+
+  // these two are required to make github pages work
+  publicPath: "./",
+  outputDir: path.resolve(__dirname, "./docs"),
 };
