@@ -1,31 +1,11 @@
 import webglUtils from "./webgl-utils";
 
-const nWaves = 7;
-
-const WAVE_DATA = new Int8Array(50 * nWaves);
-
-for (let ii = 0; ii < nWaves; ii++) {
-  for (let t = 0; t < 50; t++) {
-    WAVE_DATA[ii * 50 + t] =
-      (Math.sin((t / 50) * 5) / 4 + Math.random() * 0.05 + (ii % 5) * 0.01) *
-      128;
-  }
-}
-
-console.dir(WAVE_DATA);
-
-const CUT_DATA = new Float32Array(nWaves * 2);
-for (let ii = 0; ii < nWaves; ii++) {
-  CUT_DATA[ii * 2 + 0] = ii % 2;
-  CUT_DATA[ii * 2 + 1] = (ii & 2) >> 1;
-}
-
 const vertexShaderSource = `#version 300 es
 in lowp vec2 a_wave_data;
 in vec2 a_cut_data;
 
 void main() {  
-  gl_Position = vec4(float(gl_InstanceID%50 + gl_VertexID)/60. -1. + float(a_cut_data[0]), float(a_wave_data[gl_VertexID]) -0.5+ a_cut_data[1], 0.0, 1.0);
+  gl_Position = vec4(float(gl_InstanceID%54 + gl_VertexID)/60. -1. + float(a_cut_data[0]), float(a_wave_data[gl_VertexID]) -0.5+ a_cut_data[1], 0.0, 1.0);
 }
 `;
 
@@ -39,7 +19,7 @@ void main() {
 }
 `;
 
-function main(canvas) {
+function main(canvas, WAVE_DATA, CUT_DATA, nWaves) {
   // Get A WebGL context
   const gl = canvas.getContext("webgl2");
 
@@ -105,12 +85,12 @@ function main(canvas) {
     0,
     0
   );
-  gl.vertexAttribDivisor(cutDataLoc, 50);
+  gl.vertexAttribDivisor(cutDataLoc, 54);
 
   const colorLoc = gl.getUniformLocation(program, "u_color");
   gl.uniform4fv(colorLoc, [1, 0, 0, 1]);
 
-  gl.drawArraysInstanced(gl.LINES, 0, 2, 50 * nWaves);
+  gl.drawArraysInstanced(gl.LINES, 0, 2, 54 * nWaves);
 }
 
 export default main;

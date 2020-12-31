@@ -110,6 +110,16 @@ export default {
         const tet = this.selectedExperiment.tetrodes.find((t) => !!t);
         this.selectedTetNum = tet && tet.num;
       }
+      this.worker.render({
+        experiment_name: this.selectedExperimentName,
+        tet_num: this.selectedTetNum,
+      });
+    },
+    selectedTetNum() {
+      this.worker.render({
+        experiment_name: this.selectedExperimentName,
+        tet_num: this.selectedTetNum,
+      });
     },
   },
 };

@@ -7,7 +7,6 @@
       width="400"
       height="400"
       style="border: 1px solid red;"
-      @click="doSomething"
     />
   </div>
 </template>
@@ -24,11 +23,7 @@ export default {
     window.offCanv = offCanv;
     this.worker.useTileWallCanvas(Comlink.transfer(offCanv, [offCanv]));
   },
-  methods: {
-    doSomething() {
-      this.worker.render();
-    },
-  },
+  methods: {},
 };
 </script>
 
