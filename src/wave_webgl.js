@@ -1,11 +1,45 @@
 import webglUtils from "./webgl-utils";
 
+const state = {
+  canv: null,
+  gl: null,
+  program: null,
+  locs: {},
+  buffers: {},
+};
+
 const vertexShaderSource = `#version 300 es
-in lowp vec2 a_wave_data;
-in vec2 a_cut_data;
+in lowp vec2 a_voltage;
+in vec2 a_group_xy;
 
 void main() {  
-  gl_Position = vec4(float(gl_InstanceID%54 + gl_VertexID)/60. -1. + float(a_cut_data[0]), float(a_wave_data[gl_VertexID]) -0.5+ a_cut_data[1], 0.0, 1.0);
+  
+  int segmentId = gl_InstanceID % 54; 
+
+  // because of the way we've setup our instanced rendinering, the builtin
+  // glVertexID variable is either 0 or 1, indicating left or right of line segment.
+  int x_within_wave = segmentId + gl_VertexID;
+
+  // the first 5 line segments are nonsense (so we clip them out):
+  // segment 0: previous_byte -- time_byte_1   (to make this work for first wave we ask that the voltage data to be prefixed with a dummy byte)
+  // segment 1: time_byte_1 -- time_byte_2
+  // segment 2: time_byte_2 -- time_byte_3
+  // segment 3: time_byte_3 -- time_byte_4
+  // segment 4: time_byte_4 -- voltage_samp_1
+  // then it's real line segments:
+  // segment 5: voltage_samp_1 -- voltage_samp_2
+  // segment 6: voltage_samp_2 -- voltage_samp_3
+  // ..
+  // segment 52: voltage_samp_48 -- voltage_samp_49
+  // segment 53: voltage_samp_49 -- voltage_samp_50
+  float clip = segmentId >= 5 ? 1.0 : 0.0;
+
+  gl_Position = vec4(
+    float(a_group_xy.x) + float(x_within_wave)/51. -1.,
+    a_group_xy.y + float(a_voltage[gl_VertexID]) -0.5,
+    0.0, // we don't care about depth
+    clip
+    );
 }
 `;
 
@@ -19,25 +53,41 @@ void main() {
 }
 `;
 
-function main(canvas, WAVE_DATA, CUT_DATA, nWaves) {
-  // Get A WebGL context
-  const gl = canvas.getContext("webgl2");
+export function setOffScreenCanvas(canvas) {
+  state.canv = canvas;
+  state.gl = state.canv.getContext("webgl2");
+  const gl = state.gl; // for short
 
-  const program = webglUtils.createProgramFromSources(
+  state.program = webglUtils.createProgramFromSources(
     gl,
     [vertexShaderSource, fragmentShaderSource],
     null,
     null,
     (err) => console.dir(err)
   );
-  gl.viewport(0, 0, 400, 400);
-  gl.useProgram(program);
+  state.gl.viewport(0, 0, 400, 400);
+  state.gl.useProgram(state.program);
 
-  const waveDataLoc = gl.getAttribLocation(program, "a_wave_data");
-  const waveBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, waveBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, WAVE_DATA, gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(waveDataLoc);
+  state.locs.voltage = state.gl.getAttribLocation(state.program, "a_voltage");
+  state.buffers.voltage = gl.createBuffer();
+
+  state.locs.group_xy = gl.getAttribLocation(state.program, "a_group_xy");
+  state.buffers.group_xy = gl.createBuffer();
+
+  state.locs.color = gl.getUniformLocation(state.program, "u_color");
+}
+
+export function render(voltage, group_xy, nWaves) {
+  // Voltage data should consist of nWaves, where each wave contains:
+  //  four instances of [4-time-bytes 50 voltage bytes].
+  // And there should be a single dummy byte at the start (see
+  // the note within the vertex shader for why this is needed).
+
+  const gl = state.gl; // for short
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, state.buffers.voltage);
+  gl.bufferData(gl.ARRAY_BUFFER, voltage, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(state.locs.voltage);
 
   // we start with a 1D vector of voltage data.
   // for simplicitly, lets pretend the data within is:
@@ -52,7 +102,7 @@ function main(canvas, WAVE_DATA, CUT_DATA, nWaves) {
   // This is achieved by having two floats per point, but having the
   // stride only advance 4 bytes, which is one float rather than two
   gl.vertexAttribPointer(
-    waveDataLoc,
+    state.locs.voltage,
     2, // two elements per point
     gl.BYTE,
     true, // normalize
@@ -70,27 +120,22 @@ function main(canvas, WAVE_DATA, CUT_DATA, nWaves) {
   // By using instances, with 2 points per instance we sneakily end up with
   // with duplicating each point, once for use on the LHS of a line, and once for
   // use on the RHS of a line...which is exactly what we need!
-  gl.vertexAttribDivisor(waveDataLoc, 1);
+  gl.vertexAttribDivisor(state.locs.voltage, 1);
 
-  const cutDataLoc = gl.getAttribLocation(program, "a_cut_data");
-  const cutBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, cutBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, CUT_DATA, gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(cutDataLoc);
+  gl.bindBuffer(gl.ARRAY_BUFFER, state.buffers.group_xy);
+  gl.bufferData(gl.ARRAY_BUFFER, group_xy, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(state.locs.group_xy);
   gl.vertexAttribPointer(
-    cutDataLoc,
+    state.locs.group_xy,
     2, // two elements per point (x,y)
     gl.FLOAT,
     false, // normalize
     0,
     0
   );
-  gl.vertexAttribDivisor(cutDataLoc, 54);
+  gl.vertexAttribDivisor(state.locs.group_xy, 54);
 
-  const colorLoc = gl.getUniformLocation(program, "u_color");
-  gl.uniform4fv(colorLoc, [1, 0, 0, 1]);
+  gl.uniform4fv(state.locs.color, [1, 0, 0, 1]);
 
   gl.drawArraysInstanced(gl.LINES, 0, 2, 54 * nWaves);
 }
-
-export default main;

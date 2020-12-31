@@ -1,5 +1,5 @@
 import * as Comlink from "comlink";
-import waveWebgl from "./wave_webgl";
+import { render as renderWaves, setOffScreenCanvas } from "./wave_webgl";
 import parseTetFile from "./parse_tet_file";
 
 const fileFromName = new Map();
@@ -48,11 +48,10 @@ function storeFileWithinExperiments(f) {
   }
 }
 
-let offscreenCanvas;
-
 async function render(tetFile) {
-  const { header, body } = await parseTetFile(tetFile);
-  waveWebgl(offscreenCanvas, body, makeDummyCutData(1e3), 1e3);
+  const { header, webgl_voltage_data } = await parseTetFile(tetFile);
+
+  renderWaves(webgl_voltage_data, makeDummyCutData(1e3), 1e3);
 }
 
 function makeDummyCutData(nWaves) {
@@ -79,7 +78,9 @@ Comlink.expose({
     trigger = triggerNew;
   },
   useTileWallCanvas(offscreenCanvasNew) {
-    offscreenCanvas = offscreenCanvasNew;
+    // this is only needed during development when we want to use a real canvas
+    // in the long run we can just create an offscreen canvas from scratch on the worker
+    setOffScreenCanvas(offscreenCanvasNew);
   },
   render({ experiment_name, tet_num }) {
     // This is extremely rough, it will need to be substantially rethought when
