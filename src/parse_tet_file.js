@@ -9,9 +9,11 @@ export default async function(f) {
     throw "did not find end of header in tet file.";
   }
 
-  const data_start = match[0].index + match[0].length;
+  const data_start = match.index + match[0].length;
   return {
     header: "TODO: parse header",
-    body: new Int8Array(buffer.slice(data_start, -10)),
+    webgl_voltage_data: new Int8Array(
+      buffer.slice(data_start - 1 /* required dummy byte prefix */, -10)
+    ),
   };
 }

@@ -173,7 +173,7 @@ function createProgram(
         .map((shader) => {
           const src = addLineNumbersWithError(gl.getShaderSource(shader));
           const type = gl.getShaderParameter(shader, gl.SHADER_TYPE);
-          return `${gl.enumToString(gl, type)}:\n${src}`;
+          return src;
         })
         .join("\n")}`
     );

@@ -1,5 +1,4 @@
-const WorkerPlugin = require("worker-plugin"),
-  path = require("path");
+const WorkerPlugin = require("worker-plugin");
 
 module.exports = {
   chainWebpack: (config) => config.resolve.symlinks(false),

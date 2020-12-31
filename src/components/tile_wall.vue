@@ -4,9 +4,9 @@
 
     <canvas
       ref="theCanvas"
-      width="400"
-      height="400"
-      style="border: 1px solid red;"
+      width="512"
+      height="1024"
+      style="border: 1px solid red; height: 768px; width: 384px;"
     />
   </div>
 </template>
