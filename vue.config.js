@@ -10,6 +10,9 @@ module.exports = {
     plugins: [new WorkerPlugin()],
   },
 
-  // this is required to make github pages work
-  publicPath: "./dist",
+  // this means use relative paths for js/css etc.
+  // This means it supports hosting on github at:
+  //  https://some-username.github.com/some-reponame,
+  // i.e. where there is 'some-reponame' after the domain
+  publicPath: "./",
 };

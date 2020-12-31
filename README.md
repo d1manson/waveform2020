@@ -6,7 +6,7 @@ This version is still in early development. The aim is to have it run
 in latest Chrome (again, rather than only via Electron), support more
 data formats, be faster, and hopefully be easier to maintain and extend.
 
-## You can view this version live [here](https://d1manson.github.io/waveform2020).
+**You can view this version live [here](https://d1manson.github.io/waveform2020)**
 
 ## Development
 
@@ -30,7 +30,17 @@ npm run serve
 
 This hot reloads the bundle, though changes to the worker don't hot reload.
 
-Before pushing to production run this (TODO: setup CI somehow):
+## Build & Deploy
+
+When you push to master on github, the `build_on_master.yaml` file within
+`.github/workflows` will run and publish a built version to a `dist` branch,
+which is configured as the "github pages" branch within the repo settings in the
+github interface. This is how hosting works.
+
+If you don't know about github actions, it's worth googling. In particular,
+here we have basically copied the yaml from [here](https://github.com/marketplace/actions/deploy-to-github-pages).
+
+You can manually build if you want:
 
 ```
 npm run build
