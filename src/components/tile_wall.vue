@@ -2,7 +2,7 @@
   <div class="tile-wall">
     <div class="cut-group" v-for="(count, i) in cutGroupCounts" :key="i">
       <div class="group-info">#{{ i }} | n={{ count }}</div>
-      <worker-canvas prefix="waves" :idx="i" />
+      <worker-canvas :path="'waves.' + i" />
     </div>
 
     <canvas

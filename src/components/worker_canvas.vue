@@ -4,8 +4,9 @@
 
 <script>
 /*
-  You specify a {prefix,idx} to identify canvases.
-
+  You specify a path to identify canvases. Path is just a string, but it's
+  expected to have dot-delimited parts, e.g 'tiles.0.waves'.
+  
   The worker thread controls when a given canvas is actually created and
   what its width/height and pixel data will actually be, but this component
   on the main thread controls where to actually display those
@@ -16,15 +17,14 @@
 */
 import * as Comlink from "comlink";
 
-const canvasFromKey = new Map();
-const handlerFromKey = new Map();
+const canvasFromPath = new Map();
+const handlerFromPath = new Map();
 
 // This function needs to be registered with the worker
 export function upsertCanvasesForWorkerThread(canvProps) {
   const canvs = canvProps //
-    .map(({ prefix, idx, width, height }) => {
-      const key = `${prefix}|${idx}`;
-      let canvas = canvasFromKey.get(key);
+    .map(({ path, width, height }) => {
+      let canvas = canvasFromPath.get(path);
       if (canvas && (canvas.width !== width || canvas.height !== height)) {
         canvas = null;
       }
@@ -32,9 +32,9 @@ export function upsertCanvasesForWorkerThread(canvProps) {
         canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
-        canvasFromKey.set(key, canvas);
-        if (handlerFromKey.has(key)) {
-          handlerFromKey.get(key)(canvas);
+        canvasFromPath.set(path, canvas);
+        if (handlerFromPath.has(path)) {
+          handlerFromPath.get(path)(canvas);
         }
       }
 
@@ -47,13 +47,9 @@ export function upsertCanvasesForWorkerThread(canvProps) {
 export default {
   name: "WorkerCanvas",
   props: {
-    prefix: {
+    path: {
       required: true,
       type: String,
-    },
-    idx: {
-      required: true,
-      type: Number,
     },
   },
   mounted() {
@@ -64,33 +60,28 @@ export default {
         this.$el.appendChild(canv);
       }
     };
-    this._register(this.key);
-  },
-  computed: {
-    key() {
-      return `${this.prefix}|${this.idx}`;
-    },
+    this._register(this.path);
   },
   unmounted() {
-    this._release(this.key);
+    this._release(this.path);
   },
   methods: {
-    _register(key) {
-      handlerFromKey.set(key, this._handler);
-      if (canvasFromKey.has(key)) {
-        this._handler(canvasFromKey.get(key));
+    _register(path) {
+      handlerFromPath.set(path, this._handler);
+      if (canvasFromPath.has(path)) {
+        this._handler(canvasFromPath.get(path));
       }
     },
-    _release(key) {
-      if (handlerFromKey.get(key) === this._handler) {
-        handlerFromKey.delete(key);
+    _release(path) {
+      if (handlerFromPath.get(path) === this._handler) {
+        handlerFromPath.delete(path);
       }
     },
   },
   watch: {
-    key(newKey, oldKey) {
-      this._release(oldKey);
-      this._register(newKey);
+    path(newPath, oldPath) {
+      this._release(oldPath);
+      this._register(newPath);
     },
   },
 };
