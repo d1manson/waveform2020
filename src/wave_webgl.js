@@ -12,7 +12,7 @@ const nLinesPerChannel = nClippedLinesPerChannel + nVoltageLinesPerChannel;
 
 // these are all in the same units, "pixels"
 const offCanvW = 1024;
-const offCanvH = 512;
+const offCanvH = 1024;
 const hTimeStep = 2; // horizontal spacing of voltage values
 const hGapBetweenChannels = 2;
 const vGapBetweenSpikes = 2;
@@ -253,7 +253,8 @@ export function render(voltage, cut) {
     );
   }
 
-  // TODO: only do this if we are in debug mode. note that this destroys the current pixel data
-  const bitmap = offCanv.transferToImageBitmap();
-  trigger("offscreen-page-rendered", bitmap, [bitmap]);
+  if (process.env.NODE_ENV === "development") {
+    const bitmap = offCanv.transferToImageBitmap();
+    trigger("offscreen-page-rendered", bitmap, [bitmap]);
+  }
 }

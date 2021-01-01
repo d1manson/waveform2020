@@ -13,14 +13,15 @@
     </div>
 
     <canvas
+      v-if="BUILD === 'development'"
       ref="offCanvas"
       width="1024"
-      height="512"
+      height="1024"
       style="
         position: absolute;
         bottom: 0px; right: 0px; 
         opacity: 0.4; border: 1px solid red;
-        width: 512px; height: 256px;"
+        width: 256px; height: 256px;"
     />
   </div>
 </template>
@@ -37,6 +38,7 @@ export default {
   },
   data: () => ({
     cutGroupCounts: [],
+    BUILD: process.env.NODE_ENV,
   }),
   workerEvents: {
     "update:cut-counts"(cutGroupCounts) {
