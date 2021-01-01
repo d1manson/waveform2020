@@ -1,4 +1,5 @@
 import webglUtils from "./webgl-utils";
+import { trigger } from "./worker-events";
 
 const nChannelsPerSpike = 4;
 const nVoltageSampsPerChannel = 50;
@@ -8,14 +9,6 @@ const renderGapBetweenChannels = 2; // 1 unit here is equal to the width of once
 
 const nLinesPerChannel =
   nIrrelevantPrefixBytesPerChannel + nVoltageSampsPerChannel; // 54, but first 5 clipped out
-
-const state = {
-  canv: null,
-  gl: null,
-  program: null,
-  locs: {},
-  buffers: {},
-};
 
 const vertexShaderSource = `#version 300 es
 // see notes on normalizing unsigned/signed data here:
@@ -74,31 +67,40 @@ void main() {
 }
 `;
 
-export function setOffScreenCanvas(canvas) {
-  state.canv = canvas;
-  state.gl = state.canv.getContext("webgl2");
-  const gl = state.gl; // for short
+const offW = 512;
+const offH = 512;
+const offscreenCanvas = new OffscreenCanvas(offW, offH);
 
-  state.program = webglUtils.createProgramFromSources(
-    gl,
-    [vertexShaderSource, fragmentShaderSource],
-    null,
-    null,
-    (err) => console.dir(err)
-  );
-  state.gl.viewport(0, 0, canvas.width, canvas.height);
-  state.gl.useProgram(state.program);
+const gl = offscreenCanvas.getContext("webgl2");
 
-  state.locs.voltage = state.gl.getAttribLocation(state.program, "a_voltage");
-  state.buffers.voltage = gl.createBuffer();
-  gl.enableVertexAttribArray(state.locs.voltage);
+const program = webglUtils.createProgramFromSources(
+  gl,
+  [vertexShaderSource, fragmentShaderSource],
+  null,
+  null,
+  (err) => console.dir(err)
+);
+gl.viewport(0, 0, offW, offH);
+gl.useProgram(program);
 
-  state.locs.group_xy = gl.getAttribLocation(state.program, "a_group_xy");
-  state.buffers.group = gl.createBuffer();
-  gl.enableVertexAttribArray(state.locs.group_xy);
+const locs = {
+  voltage: gl.getAttribLocation(program, "a_voltage"),
+  group_xy: gl.getAttribLocation(program, "a_group_xy"),
+  group_color: gl.getAttribLocation(program, "a_group_color"),
+};
+gl.enableVertexAttribArray(locs.voltage);
+gl.enableVertexAttribArray(locs.group_xy);
+gl.enableVertexAttribArray(locs.group_color);
 
-  state.locs.group_color = gl.getAttribLocation(state.program, "a_group_color");
-  gl.enableVertexAttribArray(state.locs.group_color);
+const buffers = {
+  voltage: gl.createBuffer(),
+  group: gl.createBuffer(),
+};
+
+const outputCanvs = [];
+export function setCanvasForIdx(idx, canvas) {
+  outputCanvs[idx] = canvas;
+  canvas.getContext("2d").fillText(`offscreen ${idx}`, 5, 10);
 }
 
 function makeDummyCutXYData(cut) {
@@ -128,9 +130,7 @@ export function render(voltage, cut) {
   // And there should be a single dummy byte at the start (see
   // the note within the vertex shader for why this is needed).
 
-  const gl = state.gl; // for short
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, state.buffers.voltage);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.voltage);
   gl.bufferData(gl.ARRAY_BUFFER, voltage, gl.STATIC_DRAW);
 
   // we start with a 1D vector of voltage data.
@@ -146,7 +146,7 @@ export function render(voltage, cut) {
   // This is achieved by having two floats per point, but having the
   // stride only advance 4 bytes, which is one float rather than two
   gl.vertexAttribPointer(
-    state.locs.voltage,
+    locs.voltage,
     2, // two elements per point
     gl.BYTE,
     true, // normalize
@@ -164,25 +164,22 @@ export function render(voltage, cut) {
   // By using instances, with 2 points per instance we sneakily end up with
   // with duplicating each point, once for use on the LHS of a line, and once for
   // use on the RHS of a line...which is exactly what we need!
-  gl.vertexAttribDivisor(state.locs.voltage, 1);
+  gl.vertexAttribDivisor(locs.voltage, 1);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, state.buffers.group);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.group);
   gl.bufferData(gl.ARRAY_BUFFER, makeDummyCutXYData(cut), gl.STATIC_DRAW);
   gl.vertexAttribPointer(
-    state.locs.group_xy,
+    locs.group_xy,
     2, // two elements per point (x,y)
     gl.UNSIGNED_BYTE,
     true, // normalize
     3, // the data is 3 byte elements of x,y,palletId
     0
   );
-  gl.vertexAttribDivisor(
-    state.locs.group_xy,
-    nLinesPerChannel * nChannelsPerSpike
-  );
+  gl.vertexAttribDivisor(locs.group_xy, nLinesPerChannel * nChannelsPerSpike);
 
   gl.vertexAttribPointer(
-    state.locs.group_color,
+    locs.group_color,
     1, // one element of palletId
     gl.UNSIGNED_BYTE,
     true, // normalize
@@ -190,7 +187,7 @@ export function render(voltage, cut) {
     2 // offset 2 bytes (i.e. after x and y bytes)
   );
   gl.vertexAttribDivisor(
-    state.locs.group_color,
+    locs.group_color,
     nLinesPerChannel * nChannelsPerSpike
   );
 
@@ -200,4 +197,8 @@ export function render(voltage, cut) {
     2,
     nLinesPerChannel * nChannelsPerSpike * cut.length
   );
+
+  // TODO: only do this if we are in debug mode
+  const bitmap = offscreenCanvas.transferToImageBitmap();
+  trigger("offscreen-page-rendered", bitmap, [bitmap]);
 }

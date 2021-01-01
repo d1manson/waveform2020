@@ -3,11 +3,17 @@
     <div class="cut-group" v-for="(count, i) in cutGroupCounts" :key="i">
       #{{ i }} | n={{ count }}
       <br />
-      <canvas width="256" height="60" style="border:1px solid #0f0" />
+      <addressable-canvas
+        :width="256"
+        :height="60"
+        style="border:1px solid #0f0"
+        :id="'waves-' + i"
+        @new="sendCanvasToWorker('waves', i, $event)"
+      />
     </div>
 
     <canvas
-      ref="theCanvas"
+      ref="offCanvas"
       width="512"
       height="1024"
       style="position: absolute; bottom: 0px; right: 0px; opacity: 0.4; border: 1px solid red; height: 512px; width: 256px;"
@@ -17,9 +23,14 @@
 
 <script>
 import * as Comlink from "comlink";
+import AddressableCanvas from "./addressable_canvas";
+
 export default {
   name: "TileWall",
   props: {},
+  components: {
+    AddressableCanvas,
+  },
   data: () => ({
     cutGroupCounts: [],
   }),
@@ -27,14 +38,19 @@ export default {
     "update:cut-counts"(cutGroupCounts) {
       this.cutGroupCounts = cutGroupCounts;
     },
+    "offscreen-page-rendered"(bitmap) {
+      this.$refs.offCanvas
+        .getContext("bitmaprenderer")
+        .transferFromImageBitmap(bitmap);
+    },
   },
-  mounted() {
-    window.tw = this;
-    const offCanv = this.$refs.theCanvas.transferControlToOffscreen();
-    window.offCanv = offCanv;
-    this.worker.useTileWallCanvas(Comlink.transfer(offCanv, [offCanv]));
+  mounted() {},
+  methods: {
+    sendCanvasToWorker(kind, idx, canv) {
+      canv = canv.transferControlToOffscreen();
+      this.worker.addCanvasById(kind, idx, Comlink.transfer(canv, [canv]));
+    },
   },
-  methods: {},
 };
 </script>
 
