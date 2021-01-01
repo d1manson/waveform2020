@@ -2,12 +2,7 @@
   <div class="tile-wall">
     <div class="cut-group" v-for="(count, i) in cutGroupCounts" :key="i">
       <div class="group-info">#{{ i }} | n={{ count }}</div>
-      <addressable-canvas
-        :width="400"
-        :height="128"
-        :id="'waves-' + i"
-        @new="sendCanvasToWorker('waves', i, $event)"
-      />
+      <worker-canvas prefix="waves" :idx="i" />
     </div>
 
     <canvas
@@ -25,14 +20,13 @@
 </template>
 
 <script>
-import * as Comlink from "comlink";
-import AddressableCanvas from "./addressable_canvas";
+import WorkerCanvas from "./worker_canvas";
 
 export default {
   name: "TileWall",
   props: {},
   components: {
-    AddressableCanvas,
+    WorkerCanvas,
   },
   data: () => ({
     cutGroupCounts: [],
@@ -42,19 +36,13 @@ export default {
     "update:cut-counts"(cutGroupCounts) {
       this.cutGroupCounts = cutGroupCounts;
     },
-    "offscreen-page-rendered"(bitmap) {
+    "debug-offscreen-page-rendered"(bitmap) {
       this.$refs.offCanvas
         .getContext("bitmaprenderer")
         .transferFromImageBitmap(bitmap);
     },
   },
-  mounted() {},
-  methods: {
-    sendCanvasToWorker(kind, idx, canv) {
-      canv = canv.transferControlToOffscreen();
-      this.worker.addCanvasById(kind, idx, Comlink.transfer(canv, [canv]));
-    },
-  },
+  methods: {},
 };
 </script>
 

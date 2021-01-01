@@ -1,5 +1,8 @@
 import * as Comlink from "comlink";
-import { render as renderWaves, setCanvasForIdx } from "./wave_webgl";
+import {
+  render as renderWaves,
+  setRequestCanvasesFunction,
+} from "./wave_webgl";
 import parseTetFile from "./parse_tet_file";
 import parseCutFile from "./parse_cut_file";
 import { trigger, setTriggerFunction } from "./worker-events";
@@ -69,11 +72,7 @@ Comlink.expose({
     );
   },
   setTriggerFunction,
-  addCanvasById(kind, idx, canv) {
-    if (kind === "waves") {
-      setCanvasForIdx(idx, canv);
-    }
-  },
+  setRequestCanvasesFunction,
   render({ experiment_name, tet_num, cut_file_name }) {
     // This is extremely rough, it will need to be substantially rethought when
     // used for real.

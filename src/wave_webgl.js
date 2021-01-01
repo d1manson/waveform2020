@@ -141,9 +141,26 @@ const buffers = {
 };
 
 const outputCanvs = [];
-export function setCanvasForIdx(idx, canvas) {
-  outputCanvs[idx] = canvas.getContext("2d");
-  // outputCanvs[idx].fillText(`offscreen ${idx}`, 5, 10);
+let requestCanvasesFunc = null;
+export function setRequestCanvasesFunction(func) {
+  requestCanvasesFunc = func;
+}
+async function ensureOutputCanvsLength(n) {
+  if (n <= outputCanvs.length) {
+    return;
+  }
+  const newCanvs = await requestCanvasesFunc(
+    Array(n - outputCanvs.length)
+      .fill(null)
+      .map((_, ii) => ({
+        prefix: "waves",
+        idx: ii + outputCanvs.length,
+        width: spikeW,
+        height: spikeH,
+      }))
+  );
+
+  newCanvs.forEach((canv) => outputCanvs.push(canv.getContext("2d")));
 }
 
 function makeGroupColRowData(cut) {
@@ -160,7 +177,9 @@ function makeGroupColRowData(cut) {
   return CUT_DATA;
 }
 
-export function render(voltage, cut, nGroups) {
+export async function render(voltage, cut, nGroups) {
+  await ensureOutputCanvsLength(nGroups);
+
   // Voltage data should consist of nSpikes, where each wave contains:
   //  four instances of [4-time-bytes 50 voltage bytes].
   // And there should be a single dummy byte at the start (see
@@ -267,7 +286,7 @@ export function render(voltage, cut, nGroups) {
 
     if (process.env.NODE_ENV === "development") {
       const bitmap = offCanv.transferToImageBitmap();
-      trigger("offscreen-page-rendered", bitmap, [bitmap]);
+      trigger("debug-offscreen-page-rendered", bitmap, [bitmap]);
     }
   }
 }
