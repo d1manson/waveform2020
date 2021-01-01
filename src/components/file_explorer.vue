@@ -146,6 +146,8 @@ export default {
         }
       }
 
+      gtag("event", "switch-to", {});
+
       this.worker.render({
         experiment_name: this.selectedExperimentName,
         tet_num: this.selectedTetNum,

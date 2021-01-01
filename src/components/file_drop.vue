@@ -39,6 +39,8 @@ export default {
             .map((item) => item.getAsFile())
         : event.dataTransfer.files;
       this.dragging = false;
+
+      gtag("event", "drop-files", { value: newFiles.length });
       this.worker.addFiles(newFiles);
     },
     onDragOver(event) {
