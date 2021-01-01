@@ -9,8 +9,23 @@
           <pane size="35">
             TODO: plot pos data here
           </pane>
-          <pane size="35">
+          <pane size="35" class="bottom-pane">
             TODO: plot clusters here
+            <hr />
+            <div class="note">
+              Note this whole thing is still in early development.
+              <br />
+              <br />
+              View the source on github
+              <a href="https://github.com/d1manson/waveform2020">here</a>, you
+              can also see the old 2016 version
+              <a href="https://github.com/d1manson/waveform">here</a>.
+              <br />
+              <br />
+              Google Analytics is used to track usage, but the data sent to
+              Google is pretty basic - it doesn't include any details about the
+              data you are looking at.
+            </div>
           </pane>
         </splitpanes></pane
       >
@@ -52,5 +67,12 @@ export default {
   align-items: center;
   position: relative;
   box-shadow: 0 0 3px rgba(0, 0, 0, 0.2) inset;
+}
+.bottom-pane {
+  flex-direction: column;
+}
+.note {
+  font-size: 0.8em;
+  margin: 10px;
 }
 </style>
