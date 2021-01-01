@@ -2,7 +2,7 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import * as Comlink from "comlink";
 import workerMixin from "./worker_vue_mixin";
-import { upsertCanvasesForWorkerThread } from "./components/addressable_canvas_store";
+import { upsertCanvasesForWorkerThread } from "./components/worker_canvas";
 
 const worker = Comlink.wrap(new Worker("./main-worker.js", { type: "module" }));
 

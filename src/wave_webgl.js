@@ -286,7 +286,7 @@ export async function render(voltage, cut, nGroups) {
 
     if (process.env.NODE_ENV === "development") {
       const bitmap = offCanv.transferToImageBitmap();
-      trigger("offscreen-page-rendered", bitmap, [bitmap]);
+      trigger("debug-offscreen-page-rendered", bitmap, [bitmap]);
     }
   }
 }
