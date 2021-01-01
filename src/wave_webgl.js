@@ -234,6 +234,8 @@ export function render(voltage, cut, nGroups) {
 
   for (let page = 0; page < nPages; page++) {
     gl.uniform1i(locs.page, page);
+
+    gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArraysInstanced(
       gl.LINES,
       0,

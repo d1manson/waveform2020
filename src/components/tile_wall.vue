@@ -1,12 +1,10 @@
 <template>
   <div class="tile-wall">
     <div class="cut-group" v-for="(count, i) in cutGroupCounts" :key="i">
-      #{{ i }} | n={{ count }}
-      <br />
+      <div class="group-info">#{{ i }} | n={{ count }}</div>
       <addressable-canvas
         :width="400"
         :height="128"
-        style="border:1px solid #0f0"
         :id="'waves-' + i"
         @new="sendCanvasToWorker('waves', i, $event)"
       />
@@ -72,5 +70,8 @@ export default {
   border: 1px solid #ccc;
   margin: 2px;
   padding: 2px;
+}
+.group-info {
+  font-size: 0.8em;
 }
 </style>
