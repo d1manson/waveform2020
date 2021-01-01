@@ -1,5 +1,5 @@
 <template>
-  <div></div>
+  <div class="canv-wrapper"></div>
 </template>
 
 <script>
@@ -69,4 +69,8 @@ export default {
 };
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.canv-wrapper {
+  line-height: 0px;
+}
+</style>

@@ -4,8 +4,8 @@
       #{{ i }} | n={{ count }}
       <br />
       <addressable-canvas
-        :width="256"
-        :height="60"
+        :width="400"
+        :height="128"
         style="border:1px solid #0f0"
         :id="'waves-' + i"
         @new="sendCanvasToWorker('waves', i, $event)"
@@ -14,9 +14,13 @@
 
     <canvas
       ref="offCanvas"
-      width="512"
-      height="1024"
-      style="position: absolute; bottom: 0px; right: 0px; opacity: 0.4; border: 1px solid red; height: 512px; width: 256px;"
+      width="1024"
+      height="512"
+      style="
+        position: absolute;
+        bottom: 0px; right: 0px; 
+        opacity: 0.4; border: 1px solid red;
+        width: 512px; height: 256px;"
     />
   </div>
 </template>
