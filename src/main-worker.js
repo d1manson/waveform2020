@@ -54,7 +54,7 @@ async function render(tetFile, cutFile) {
   const { cut, group_counts } = await parseCutFile(cutFile);
   trigger("update:cut-counts", group_counts);
 
-  renderWaves(webgl_voltage_data, cut);
+  renderWaves(webgl_voltage_data, cut, group_counts.length);
 }
 
 Comlink.expose({

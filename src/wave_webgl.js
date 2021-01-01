@@ -12,7 +12,7 @@ const nLinesPerChannel = nClippedLinesPerChannel + nVoltageLinesPerChannel;
 
 // these are all in the same units, "pixels"
 const offCanvW = 1024;
-const offCanvH = 512;
+const offCanvH = 1024;
 const hTimeStep = 2; // horizontal spacing of voltage values
 const hGapBetweenChannels = 2;
 const vGapBetweenSpikes = 2;
@@ -23,6 +23,8 @@ const spikeW =
   nChannelsPerSpike;
 
 const nColumns = Math.floor(offCanvW / spikeW);
+const nRowsPerPage = Math.floor(offCanvH / (spikeH + vGapBetweenSpikes));
+const nGroupsPerPage = nColumns * nRowsPerPage;
 
 const vertexShaderSource = `#version 300 es
 // see notes on normalizing unsigned/signed data here:
@@ -30,6 +32,8 @@ const vertexShaderSource = `#version 300 es
 
 in lowp vec2 a_voltage; // values between [-1, 1]
 in vec2 a_group_col_row; // values between [0, 1]
+uniform lowp int u_page;
+
 in lowp float a_group_color; // values between [0, 1]
 flat out lowp float v_group_color;
 
@@ -75,7 +79,7 @@ void main() {
 
     // y coordinate
     -1. 
-     + a_group_col_row.y *255. 
+     + (a_group_col_row.y *255. - float(u_page) * ${nRowsPerPage.toFixed(1)})
      * ${(spikeH + vGapBetweenSpikes).toFixed(1)} * 2./${offCanvH.toFixed(1)}
      + (
       // this is [0, 2]
@@ -125,6 +129,7 @@ const locs = {
   voltage: gl.getAttribLocation(program, "a_voltage"),
   group_col_row: gl.getAttribLocation(program, "a_group_col_row"),
   group_color: gl.getAttribLocation(program, "a_group_color"),
+  page: gl.getUniformLocation(program, "u_page"),
 };
 gl.enableVertexAttribArray(locs.voltage);
 gl.enableVertexAttribArray(locs.group_col_row);
@@ -155,7 +160,7 @@ function makeGroupColRowData(cut) {
   return CUT_DATA;
 }
 
-export function render(voltage, cut) {
+export function render(voltage, cut, nGroups) {
   // Voltage data should consist of nSpikes, where each wave contains:
   //  four instances of [4-time-bytes 50 voltage bytes].
   // And there should be a single dummy byte at the start (see
@@ -225,35 +230,42 @@ export function render(voltage, cut) {
     nLinesPerChannel * nChannelsPerSpike
   );
 
-  // TODO: if there are more rows than fit in one render, page through them,
-  // using a uniform to do the offset within the vertex shader. The rest of
-  // the render function will need to be run per page
-  gl.drawArraysInstanced(
-    gl.LINES,
-    0,
-    2,
-    nLinesPerChannel * nChannelsPerSpike * cut.length
-  );
+  const nPages = Math.ceil(nGroups / nGroupsPerPage);
 
-  for (let ii = 0; ii < outputCanvs.length; ii++) {
-    const col = ii % nColumns,
-      row = (ii / nColumns) | 0;
-
-    outputCanvs[ii].clearRect(0, 0, spikeW, spikeH);
-    outputCanvs[ii].drawImage(
-      offCanv,
-      col * spikeW,
-      offCanvH - 1 - row * (spikeH + vGapBetweenSpikes) - spikeH,
-      spikeW,
-      spikeH,
+  for (let page = 0; page < nPages; page++) {
+    gl.uniform1i(locs.page, page);
+    gl.drawArraysInstanced(
+      gl.LINES,
       0,
-      0,
-      spikeW,
-      spikeH
+      2,
+      nLinesPerChannel * nChannelsPerSpike * cut.length
     );
-  }
 
-  // TODO: only do this if we are in debug mode. note that this destroys the current pixel data
-  const bitmap = offCanv.transferToImageBitmap();
-  trigger("offscreen-page-rendered", bitmap, [bitmap]);
+    for (
+      let ii = page * nGroupsPerPage;
+      ii < Math.min(outputCanvs.length, (page + 1) * nGroupsPerPage);
+      ii++
+    ) {
+      const col = ii % nColumns,
+        row = ((ii / nColumns) | 0) - page * nRowsPerPage;
+
+      outputCanvs[ii].clearRect(0, 0, spikeW, spikeH);
+      outputCanvs[ii].drawImage(
+        offCanv,
+        col * spikeW,
+        offCanvH - 1 - row * (spikeH + vGapBetweenSpikes) - spikeH,
+        spikeW,
+        spikeH,
+        0,
+        0,
+        spikeW,
+        spikeH
+      );
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      const bitmap = offCanv.transferToImageBitmap();
+      trigger("offscreen-page-rendered", bitmap, [bitmap]);
+    }
+  }
 }

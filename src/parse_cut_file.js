@@ -22,7 +22,7 @@ export default async function(f) {
 
   const cut_as_str = fullText.slice(header.data_start).match(regex_cut_c);
   const cut = new Uint16Array(cut_as_str.length);
-  const counts = new Uint32Array(header.n_clusters + 1);
+  const counts = new Uint32Array(header.n_clusters);
 
   for (let ii = 0; ii < cut.length; ii++) {
     cut[ii] = parseInt(cut_as_str[ii]);
