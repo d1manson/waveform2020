@@ -21,21 +21,17 @@ const canvasFromPath = new Map();
 const handlerFromPath = new Map();
 
 // This function needs to be registered with the worker
-export function upsertCanvasesForWorkerThread(canvProps) {
-  const canvs = canvProps //
+export function createCanvasesForWorkerThread(canvSpecs) {
+  const canvs = canvSpecs //
     .map(({ path, width, height }) => {
-      let canvas = canvasFromPath.get(path);
-      if (canvas && (canvas.width !== width || canvas.height !== height)) {
-        canvas = null;
-      }
-      if (!canvas) {
-        canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        canvasFromPath.set(path, canvas);
-        if (handlerFromPath.has(path)) {
-          handlerFromPath.get(path)(canvas);
-        }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      // note that we overwrite any existing canvas at the given path
+      canvasFromPath.set(path, canvas);
+      if (handlerFromPath.has(path)) {
+        handlerFromPath.get(path)(canvas);
       }
 
       return canvas.transferControlToOffscreen();

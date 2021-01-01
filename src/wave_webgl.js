@@ -149,15 +149,16 @@ async function ensureOutputCanvsLength(n) {
   if (n <= outputCanvs.length) {
     return;
   }
-  const newCanvs = await requestCanvasesFunc(
-    Array(n - outputCanvs.length)
-      .fill(null)
-      .map((_, ii) => ({
-        path: `waves.${ii + outputCanvs.length}`,
-        width: spikeW,
-        height: spikeH,
-      }))
-  );
+
+  const newCanvSpecs = Array(n - outputCanvs.length)
+    .fill(null)
+    .map((_, ii) => ({
+      path: `waves.${ii + outputCanvs.length}`,
+      width: spikeW,
+      height: spikeH,
+    }));
+
+  const newCanvs = await requestCanvasesFunc(newCanvSpecs);
 
   newCanvs.forEach((canv) => outputCanvs.push(canv.getContext("2d")));
 }
