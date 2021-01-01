@@ -153,8 +153,7 @@ async function ensureOutputCanvsLength(n) {
     Array(n - outputCanvs.length)
       .fill(null)
       .map((_, ii) => ({
-        prefix: "waves",
-        idx: ii + outputCanvs.length,
+        path: `waves.${ii + outputCanvs.length}`,
         width: spikeW,
         height: spikeH,
       }))
