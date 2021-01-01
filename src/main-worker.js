@@ -1,12 +1,11 @@
 import * as Comlink from "comlink";
-import { render as renderWaves, setOffScreenCanvas } from "./wave_webgl";
+import { render as renderWaves, setCanvasForIdx } from "./wave_webgl";
 import parseTetFile from "./parse_tet_file";
 import parseCutFile from "./parse_cut_file";
+import { trigger, setTriggerFunction } from "./worker-events";
 
 const fileFromName = new Map();
 const experiments = {};
-
-let trigger = (eventName, payload) => null;
 
 function storeFileWithinExperiments(f) {
   const match = f.name.match(/(.*)(_\d+\.cut|\.set|\.pos|\.\d+)$/);
@@ -69,13 +68,11 @@ Comlink.expose({
       Object.values(experiments).sort((a, b) => (a.name > b.name ? 1 : -1))
     );
   },
-  setTriggerFunction(triggerNew) {
-    trigger = triggerNew;
-  },
-  useTileWallCanvas(offscreenCanvasNew) {
-    // this is only needed during development when we want to use a real canvas
-    // in the long run we can just create an offscreen canvas from scratch on the worker
-    setOffScreenCanvas(offscreenCanvasNew);
+  setTriggerFunction,
+  addCanvasById(kind, idx, canv) {
+    if (kind === "waves") {
+      setCanvasForIdx(idx, canv);
+    }
   },
   render({ experiment_name, tet_num, cut_file_name }) {
     // This is extremely rough, it will need to be substantially rethought when

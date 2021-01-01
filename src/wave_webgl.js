@@ -1,42 +1,49 @@
 import webglUtils from "./webgl-utils";
+import { trigger } from "./worker-events";
 
 const nChannelsPerSpike = 4;
 const nVoltageSampsPerChannel = 50;
 const nIrrelevantPrefixBytesPerChannel = 4;
 
-const renderGapBetweenChannels = 2; // 1 unit here is equal to the width of once voltage time step
+const nClippedLinesPerChannel = 1 + nIrrelevantPrefixBytesPerChannel;
+const nVoltageLinesPerChannel = nVoltageSampsPerChannel - 1;
 
-const nLinesPerChannel =
-  nIrrelevantPrefixBytesPerChannel + nVoltageSampsPerChannel; // 54, but first 5 clipped out
+const nLinesPerChannel = nClippedLinesPerChannel + nVoltageLinesPerChannel;
 
-const state = {
-  canv: null,
-  gl: null,
-  program: null,
-  locs: {},
-  buffers: {},
-};
+// these are all in the same units, "pixels"
+const offCanvW = 1024;
+const offCanvH = 512;
+const hTimeStep = 2; // horizontal spacing of voltage values
+const hGapBetweenChannels = 2;
+const vGapBetweenSpikes = 2;
+const spikeH = 128;
+
+const spikeW =
+  (nVoltageLinesPerChannel * hTimeStep + hGapBetweenChannels) *
+  nChannelsPerSpike;
+
+const nColumns = Math.floor(offCanvW / spikeW);
 
 const vertexShaderSource = `#version 300 es
 // see notes on normalizing unsigned/signed data here:
 // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/vertexAttribPointer
 
 in lowp vec2 a_voltage; // values between [-1, 1]
-in vec2 a_group_xy; // values between [0, 1]
+in vec2 a_group_col_row; // values between [0, 1]
 in lowp float a_group_color; // values between [0, 1]
 flat out lowp float v_group_color;
 
 void main() {  
 
-  int channelSegmentId = gl_InstanceID % ${nLinesPerChannel}; 
-  int spikeSegmentId = gl_InstanceID % ${nLinesPerChannel * nChannelsPerSpike};
+  int segment_within_channel = gl_InstanceID % ${nLinesPerChannel}; 
 
   // because of the way we've setup our instanced rendinering, the builtin
-  // glVertexID variable is either 0 or 1, indicating left or right of line segment.
-  int x_within_spike = (spikeSegmentId + gl_VertexID) 
-  - (spikeSegmentId/${nLinesPerChannel}+1) * ${nIrrelevantPrefixBytesPerChannel -
-  renderGapBetweenChannels};
-  
+  // gl_VertexID variable is either 0 or 1, indicating left or right of line segment.
+  int t_within_channel = (segment_within_channel - ${nClippedLinesPerChannel} + gl_VertexID);
+  int channel_within_spike = 
+    (gl_InstanceID % ${nLinesPerChannel * nChannelsPerSpike})
+    / ${nLinesPerChannel};
+
   // the first 5 line segments are nonsense (so we clip them out):
   // segment 0: previous_byte -- time_byte_1   (to make this work for first wave we ask that the voltage data to be prefixed with a dummy byte)
   // segment 1: time_byte_1 -- time_byte_2
@@ -49,21 +56,47 @@ void main() {
   // ..
   // segment 52: voltage_samp_48 -- voltage_samp_49
   // segment 53: voltage_samp_49 -- voltage_samp_50
-  float clip = channelSegmentId >= 5  ? 1.0 : 0.0;
 
   gl_Position = vec4(
-    -1. + a_group_xy.x*2. 
-    + float(x_within_spike)/${nLinesPerChannel * nChannelsPerSpike}. ,
-    -1. + a_group_xy.y*2. + (a_voltage[gl_VertexID] + 1.)/8.,
+
+    // x coordinate
+    -1. 
+    + a_group_col_row.x * 255. * ${spikeW.toFixed(1)} * 2./${offCanvW.toFixed(
+  1
+)} 
+    + float(
+        // this bit is in pixel coordinates
+        channel_within_spike * 
+          ${nVoltageLinesPerChannel * hTimeStep + hGapBetweenChannels} + 
+        t_within_channel * ${hTimeStep}
+      ) 
+      // convert to [-1,+1] gl coords
+      * 2./${offCanvW.toFixed(1)},
+
+    // y coordinate
+    -1. 
+     + a_group_col_row.y *255. 
+     * ${(spikeH + vGapBetweenSpikes).toFixed(1)} * 2./${offCanvH.toFixed(1)}
+     + (
+      // this is [0, 2]
+      a_voltage[gl_VertexID] + 1.
+      ) 
+      // convert to [-1, +1] gl coords
+      * ${spikeH.toFixed(1)} /${offCanvH.toFixed(1)},
+
+    // depth ..we don't care
     0.0, // we don't care about depth
-    clip
+
+    // clip
+    segment_within_channel >= ${nClippedLinesPerChannel}
+     ? 1.0 : 0.0
+
     );
 
     v_group_color = a_group_color ;
 
 }
 `;
-
 const fragmentShaderSource = `#version 300 es
 
 flat in lowp float v_group_color;
@@ -74,49 +107,49 @@ void main() {
 }
 `;
 
-export function setOffScreenCanvas(canvas) {
-  state.canv = canvas;
-  state.gl = state.canv.getContext("webgl2");
-  const gl = state.gl; // for short
+const offCanv = new OffscreenCanvas(offCanvW, offCanvH);
 
-  state.program = webglUtils.createProgramFromSources(
-    gl,
-    [vertexShaderSource, fragmentShaderSource],
-    null,
-    null,
-    (err) => console.dir(err)
-  );
-  state.gl.viewport(0, 0, canvas.width, canvas.height);
-  state.gl.useProgram(state.program);
+const gl = offCanv.getContext("webgl2");
 
-  state.locs.voltage = state.gl.getAttribLocation(state.program, "a_voltage");
-  state.buffers.voltage = gl.createBuffer();
-  gl.enableVertexAttribArray(state.locs.voltage);
+const program = webglUtils.createProgramFromSources(
+  gl,
+  [vertexShaderSource, fragmentShaderSource],
+  null,
+  null,
+  (err) => console.dir(err)
+);
+gl.viewport(0, 0, offCanvW, offCanvH);
+gl.useProgram(program);
 
-  state.locs.group_xy = gl.getAttribLocation(state.program, "a_group_xy");
-  state.buffers.group = gl.createBuffer();
-  gl.enableVertexAttribArray(state.locs.group_xy);
+const locs = {
+  voltage: gl.getAttribLocation(program, "a_voltage"),
+  group_col_row: gl.getAttribLocation(program, "a_group_col_row"),
+  group_color: gl.getAttribLocation(program, "a_group_color"),
+};
+gl.enableVertexAttribArray(locs.voltage);
+gl.enableVertexAttribArray(locs.group_col_row);
+gl.enableVertexAttribArray(locs.group_color);
 
-  state.locs.group_color = gl.getAttribLocation(state.program, "a_group_color");
-  gl.enableVertexAttribArray(state.locs.group_color);
+const buffers = {
+  voltage: gl.createBuffer(),
+  group: gl.createBuffer(),
+};
+
+const outputCanvs = [];
+export function setCanvasForIdx(idx, canvas) {
+  outputCanvs[idx] = canvas.getContext("2d");
+  // outputCanvs[idx].fillText(`offscreen ${idx}`, 5, 10);
 }
 
-function makeDummyCutXYData(cut) {
+function makeGroupColRowData(cut) {
   const nSpikes = cut.length;
 
   const CUT_DATA = new Uint8Array(nSpikes * 3);
 
   for (let ii = 0; ii < nSpikes; ii++) {
-    // TODO: page through 12 at a time
-    if (cut[ii] > 11) {
-      CUT_DATA[ii * 3 + 0] = 255;
-      CUT_DATA[ii * 3 + 1] = 255;
-      CUT_DATA[ii * 3 + 2] = 255;
-    } else {
-      CUT_DATA[ii * 3 + 0] = (cut[ii] % 2) * 128;
-      CUT_DATA[ii * 3 + 1] = (cut[ii] >> 1) * 43;
-      CUT_DATA[ii * 3 + 2] = cut[ii];
-    }
+    CUT_DATA[ii * 3 + 0] = cut[ii] % nColumns;
+    CUT_DATA[ii * 3 + 1] = (cut[ii] / nColumns) | 0;
+    CUT_DATA[ii * 3 + 2] = cut[ii];
   }
 
   return CUT_DATA;
@@ -128,9 +161,7 @@ export function render(voltage, cut) {
   // And there should be a single dummy byte at the start (see
   // the note within the vertex shader for why this is needed).
 
-  const gl = state.gl; // for short
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, state.buffers.voltage);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.voltage);
   gl.bufferData(gl.ARRAY_BUFFER, voltage, gl.STATIC_DRAW);
 
   // we start with a 1D vector of voltage data.
@@ -146,7 +177,7 @@ export function render(voltage, cut) {
   // This is achieved by having two floats per point, but having the
   // stride only advance 4 bytes, which is one float rather than two
   gl.vertexAttribPointer(
-    state.locs.voltage,
+    locs.voltage,
     2, // two elements per point
     gl.BYTE,
     true, // normalize
@@ -164,12 +195,12 @@ export function render(voltage, cut) {
   // By using instances, with 2 points per instance we sneakily end up with
   // with duplicating each point, once for use on the LHS of a line, and once for
   // use on the RHS of a line...which is exactly what we need!
-  gl.vertexAttribDivisor(state.locs.voltage, 1);
+  gl.vertexAttribDivisor(locs.voltage, 1);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, state.buffers.group);
-  gl.bufferData(gl.ARRAY_BUFFER, makeDummyCutXYData(cut), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.group);
+  gl.bufferData(gl.ARRAY_BUFFER, makeGroupColRowData(cut), gl.STATIC_DRAW);
   gl.vertexAttribPointer(
-    state.locs.group_xy,
+    locs.group_col_row,
     2, // two elements per point (x,y)
     gl.UNSIGNED_BYTE,
     true, // normalize
@@ -177,12 +208,12 @@ export function render(voltage, cut) {
     0
   );
   gl.vertexAttribDivisor(
-    state.locs.group_xy,
+    locs.group_col_row,
     nLinesPerChannel * nChannelsPerSpike
   );
 
   gl.vertexAttribPointer(
-    state.locs.group_color,
+    locs.group_color,
     1, // one element of palletId
     gl.UNSIGNED_BYTE,
     true, // normalize
@@ -190,14 +221,39 @@ export function render(voltage, cut) {
     2 // offset 2 bytes (i.e. after x and y bytes)
   );
   gl.vertexAttribDivisor(
-    state.locs.group_color,
+    locs.group_color,
     nLinesPerChannel * nChannelsPerSpike
   );
 
+  // TODO: if there are more rows than fit in one render, page through them,
+  // using a uniform to do the offset within the vertex shader. The rest of
+  // the render function will need to be run per page
   gl.drawArraysInstanced(
     gl.LINES,
     0,
     2,
     nLinesPerChannel * nChannelsPerSpike * cut.length
   );
+
+  for (let ii = 0; ii < outputCanvs.length; ii++) {
+    const col = ii % nColumns,
+      row = (ii / nColumns) | 0;
+
+    outputCanvs[ii].clearRect(0, 0, spikeW, spikeH);
+    outputCanvs[ii].drawImage(
+      offCanv,
+      col * spikeW,
+      offCanvH - 1 - row * (spikeH + vGapBetweenSpikes) - spikeH,
+      spikeW,
+      spikeH,
+      0,
+      0,
+      spikeW,
+      spikeH
+    );
+  }
+
+  // TODO: only do this if we are in debug mode. note that this destroys the current pixel data
+  const bitmap = offCanv.transferToImageBitmap();
+  trigger("offscreen-page-rendered", bitmap, [bitmap]);
 }
