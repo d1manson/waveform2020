@@ -3,27 +3,16 @@
 </template>
 
 <script>
-/*
-  This is designed to be used with a worker, but we don't actually
-  expose the worker bit itself here. Basically you can upsert a
-  a canvas by id, and put it wherever you want in the dom using this
-  component. Removing and adding it will bring the same canvas object
-  back. This means you can send the canvas to the worker once, and then
-  let the worker deal with it after that by id.
-  
-  TODO: use an LRU cache, and when evicted emit an event
-  so that we can clean up on the worker too.
-  Also since you can't change the width/height after transfering
-  control to the worker, we should treat the width and height as part
-  of the id.
-*/
-const canvasFromId = new Map();
+import { upsertCanvas } from "./addressable_canvas_store";
 
 export default {
   name: "AddressableCanvas",
-  emits: ["new"],
   props: {
-    id: {
+    idx: {
+      required: true,
+      type: Number,
+    },
+    prefix: {
       required: true,
       type: String,
     },
@@ -37,32 +26,31 @@ export default {
     },
   },
   mounted() {
-    this.$el.appendChild(this.upsertCanvasById(this.id));
+    this.$el.appendChild(
+      upsertCanvas({
+        idx: this.idx,
+        prefix: this.prefix,
+        width: this.width,
+        height: this.height,
+      })
+    );
   },
-  methods: {
-    upsertCanvasById(id) {
-      let canv = canvasFromId.get(id);
-      if (!canv) {
-        canv = document.createElement("canvas");
-        canv.width = this.width;
-        canv.height = this.height;
-        this.$emit("new", canv);
-        canvasFromId.set(id, canv);
-      } else {
-        if (canv.width !== this.width || canv.height !== this.height) {
-          throw new Error(
-            "AddressableCanvas: changing width/height isn't permitted, but see note at top of component"
-          );
-        }
-      }
-      return canv;
-    },
-  },
+  methods: {},
   watch: {
-    id(newId, oldId) {
+    idx(newIdx, oldIdx) {
       this.$el.replaceChild(
-        this.upsertCanvasById(newId),
-        this.upsertCanvasById(oldId)
+        upsertCanvas({
+          idx: newIdx,
+          prefix: this.prefix,
+          width: this.width,
+          height: this.height,
+        }),
+        upsertCanvas({
+          idx: oldIdx,
+          prefix: this.prefix,
+          width: this.width,
+          height: this.height,
+        })
       );
     },
   },

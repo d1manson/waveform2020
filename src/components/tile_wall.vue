@@ -2,12 +2,7 @@
   <div class="tile-wall">
     <div class="cut-group" v-for="(count, i) in cutGroupCounts" :key="i">
       <div class="group-info">#{{ i }} | n={{ count }}</div>
-      <addressable-canvas
-        :width="400"
-        :height="128"
-        :id="'waves-' + i"
-        @new="sendCanvasToWorker('waves', i, $event)"
-      />
+      <addressable-canvas :width="400" :height="128" prefix="waves" :idx="i" />
     </div>
 
     <canvas
@@ -48,13 +43,7 @@ export default {
         .transferFromImageBitmap(bitmap);
     },
   },
-  mounted() {},
-  methods: {
-    sendCanvasToWorker(kind, idx, canv) {
-      canv = canv.transferControlToOffscreen();
-      this.worker.addCanvasById(kind, idx, Comlink.transfer(canv, [canv]));
-    },
-  },
+  methods: {},
 };
 </script>
 
